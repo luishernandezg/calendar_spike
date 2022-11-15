@@ -61,6 +61,10 @@ class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
   List<Calendar> _calendarsList = [];
   Calendar? _selectedCalendar;
+  String _eventId = '96';
+
+  /*Evento data: 286
+  [log] Evento creado con exito: 901792640*/
 
   late final DeviceCalendarPlugin _deviceCalendarPlugin =
       DeviceCalendarPlugin();
@@ -96,7 +100,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     var calendarios = await loadCalendars();
                     setState(() {
                       _calendarsList = calendarios;
-                      _selectedCalendar = _calendarsList[1];
+                      _selectedCalendar = _calendarsList[2];
                     });
                   },
                   child: const Text("Listar calendarios")),
@@ -118,7 +122,36 @@ class _MyHomePageState extends State<MyHomePage> {
                   },
                   child: const Text("Crear evento")),
               ElevatedButton(
-                  onPressed: () {}, child: const Text("Borrar evento")),
+                  onPressed: () async {
+                    if (_selectedCalendar == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content:
+                            Text("Primero recupere la lista de calendarios"),
+                      ));
+                      return;
+                    }
+                    const newEvent = CalendarEventModel(
+                      eventTitle: 'Test',
+                      eventDescription: 'Spike prueba',
+                      eventDurationInHours: 1,
+                    );
+                    await editCalendarEvent(
+                        newEvent, _selectedCalendar?.id ?? '', _eventId);
+                  },
+                  child: const Text("Editar evento")),
+              ElevatedButton(
+                  onPressed: () async {
+                    if (_selectedCalendar == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content:
+                            Text("Primero recupere la lista de calendarios"),
+                      ));
+                      return;
+                    }
+                    await deleteCalendarEvent(
+                        _selectedCalendar?.id ?? '', _eventId);
+                  },
+                  child: const Text("Borrar evento")),
               const SizedBox(
                 height: 16,
               ),
@@ -195,12 +228,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<void> addToCalendar(
       CalendarEventModel calendarEventModel, String selectedCalendarId) async {
-    // await Future.delayed(const Duration(seconds: 2));
-
     final eventTime = DateTime.now();
     final String currentTimeZone =
         await FlutterNativeTimezone.getLocalTimezone();
-    // Location currentLocation = await getLocation();
+
     var currentLocation = getLocation(currentTimeZone);
     setLocalLocation(currentLocation);
     log('Location: $currentLocation');
@@ -224,12 +255,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
     if ((createEventResult?.isSuccess ?? false) &&
         (createEventResult?.data?.isNotEmpty ?? false)) {
-      // emit(AddToCalendarSuccess('Event was successfully created.'));
       log('Evento creado con exito: $createEventResult');
-      /*ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text("Evento Creado con exito"),
-      ));*/
-
+      log('Evento data: ${createEventResult?.data}');
+      log('Evento creado con exito: ${createEventResult?.hashCode}');
+      log('Evento creado con exito: ${createEventResult?.errors}');
     } else {
       var errorMessage =
           'Could not create : ${createEventResult?.errors.toString()}';
@@ -237,25 +266,62 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  /*Future<Location> getLocation() async {
-    Location currentLocation = await getLocation();
-
-    String timezone = 'Etc/UTC';
-    try {
-      timezone = await FlutterNativeTimezone.getLocalTimezone();
-    } catch (e) {
-      print('Could not get the local timezone');
-    }
-    // currentLocation = getLocation();
+  Future<void> editCalendarEvent(CalendarEventModel calendarEventModel,
+      String selectedCalendarId, String eventID) async {
+    final eventTime = DateTime.now();
+    final String currentTimeZone =
+        await FlutterNativeTimezone.getLocalTimezone();
+    var currentLocation = getLocation(currentTimeZone);
     setLocalLocation(currentLocation);
-    return currentLocation;
-  }*/
+    log('Location: $currentLocation');
 
-  void convertLocalToDetroit() async {
-    DateTime indiaTime = DateTime.now(); //Emulator time is India time
-    final detroitTime =
-        new TZDateTime.from(indiaTime, getLocation('America/Detroit'));
-    print('Local India Time: ' + indiaTime.toString());
-    print('Detroit Time: ' + detroitTime.toString());
+    var newTime = TZDateTime.from(eventTime, currentLocation);
+    log('newTime: $newTime');
+
+    log('newTime: $newTime');
+
+    final eventToCreate = Event(
+      selectedCalendarId,
+      eventId: _eventId,
+      title: "${calendarEventModel.eventTitle} - Modificado",
+      description: "${calendarEventModel.eventDescription} - Modificado",
+      start: newTime.add(const Duration(hours: 1)),
+      end: newTime
+          .add(Duration(hours: calendarEventModel.eventDurationInHours + 1)),
+    );
+
+    final createEventResult =
+        await _deviceCalendarPlugin.createOrUpdateEvent(eventToCreate);
+
+    if ((createEventResult?.isSuccess ?? false) &&
+        (createEventResult?.data?.isNotEmpty ?? false)) {
+      log('Evento actualizado con exito: $createEventResult');
+      log('Evento actualizado - data: ${createEventResult?.data}');
+      log('Evento actualizado - hashcode: ${createEventResult?.hashCode}');
+      log('Evento actualizado - errors: ${createEventResult?.errors}');
+    } else {
+      var errorMessage =
+          'Could not update : ${createEventResult?.errors.toString()}';
+      log('Error actualizando evento : $errorMessage');
+    }
+  }
+
+  Future<void> deleteCalendarEvent(
+      String selectedCalendarId, String eventID) async {
+    // borr
+    final createEventResult =
+        await _deviceCalendarPlugin.deleteEvent(selectedCalendarId, eventID);
+
+    if ((createEventResult.isSuccess ?? false) &&
+        (createEventResult.data ?? false)) {
+      log('Evento eliminado con exito: $createEventResult');
+      log('Evento eliminado - data: ${createEventResult.data}');
+      log('Evento eliminado - hashcode: ${createEventResult.hashCode}');
+      log('Evento ekiminado - errors: ${createEventResult.errors}');
+    } else {
+      var errorMessage =
+          'Could not delete : ${createEventResult?.errors.toString()}';
+      log('Error eliminando evento : $errorMessage');
+    }
   }
 }
